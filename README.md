@@ -80,3 +80,7 @@ Disable or override any prompt/context by setting it to `false` in `vim.g.codex_
 ## 🙏 Notes
 
 This plugin talks directly to the Codex app-server over JSON-RPC (stdio). It intentionally keeps the UI light while retaining the familiar prompt helpers from the original workflow.
+
+## Acknowledgements
+
+Thanks to [opencode.nvim](https://github.com/NickvanDyke/opencode.nvim) for inspiration on how to design a Neovim plugin for AI coding assistants!
