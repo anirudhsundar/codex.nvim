@@ -1,0 +1,135 @@
+*codex.nvim*                                                  *codex.nvim*
+
+Codex.nvim - Neovim integration for the `codex` CLI.
+
+CONTENTS~
+  1. Setup                                    |codex-setup|
+  2. Usage                                    |codex-usage|
+  3. API                                      |codex-api|
+  4. Configuration                            |codex-config|
+     4.1 Options                              |codex-options|
+     4.2 Context placeholders                 |codex-contexts|
+     4.3 Prompts                              |codex-prompts|
+     4.4 Install snippets                     |codex-install|
+
+==============================================================================
+1. Setup                                                         *codex-setup*
+
+- Ensure `codex` is on your PATH (`codex --version`).
+- Install the plugin and set `vim.g.codex_opts` if desired.
+- Enable `:checkhealth codex` to verify.
+
+Examples:
+  lazy.nvim: >
+  {
+    dir = "anirudhsundar/codex.nvim",
+    config = function()
+      vim.g.codex_opts = {}
+      vim.o.autoread = true
+      vim.keymap.set({ "n", "x" }, "<C-a>", function()
+        require("codex").ask("@this: ", { submit = true })
+      end, { desc = "Ask codex" })
+      vim.keymap.set({ "n", "x" }, "<C-x>", function()
+        require("codex").select()
+      end, { desc = "Codex select" })
+    end,
+  }
+<
+  vim-plug: >
+    call plug#begin()
+    Plug 'anirudhsundar/codex.nvim'
+    call plug#end()
+    " Optional config:
+    let g:codex_opts = {}
+    let &autoread = 1
+    nnoremap <C-a> :lua require("codex").ask("@this: ", { submit = true })<CR>
+    xnoremap <C-a> :lua require("codex").ask("@this: ", { submit = true })<CR>
+    nnoremap <C-x> :lua require("codex").select()<CR>
+<
+
+==============================================================================
+2. Usage                                                         *codex-usage*
+
+- Ask interactively: `:lua require("codex").ask()` (highlights placeholders,
+  supports contexts like `@this`, `@buffer`).
+- Send a prompt immediately: `:lua require("codex").prompt("Explain @this")`.
+- Picker for prompts/commands: `:lua require("codex").select()`.
+- Operator-pending wrapper: `:lua require("codex").operator("Review @this")`.
+- Control helpers: `require("codex").command("turn.interrupt")`,
+  `require("codex").command("thread.new")`.
+- Output view toggle: `require("codex").toggle_output_details()` switches
+  between final-reply-only (default, markdown rendered) and full streamed
+  details (reasoning, tool output, diffs).
+- Statusline: `require("codex").statusline()`.
+
+Approvals (commands/file changes) are shown via |vim.ui.select()|. Set
+`vim.o.autoread = true` to auto-reload buffers edited by Codex.
+
+==============================================================================
+3. API                                                            *codex-api*
+
+All APIs are under `require("codex")`:
+  - `ask(default?, opts?)`
+  - `prompt(prompt, opts?)` (resolves configured prompts)
+  - `select(opts?)`
+  - `operator(prompt, opts?)` (returns "g@" for mappings)
+  - `command(name)` (`turn.interrupt`, `thread.new`)
+  - `start()`, `stop()`, `toggle()` (Codex app-server process)
+  - `toggle_output_details()`
+  - `statusline()`
+
+==============================================================================
+4. Configuration                                                *codex-config*
+
+Set `vim.g.codex_opts` before loading. All keys below are optional.
+
+4.1 Options                                                     *codex-options*
+  *codex-options-cmd*         `cmd` (string) command to start the app-server.
+                              Default: `codex app-server`.
+  *codex-options-sandbox*     `sandbox` (table|nil) sandbox policy forwarded
+                              to `thread/start`.
+  *codex-options-contexts*    `contexts` (table) placeholder functions. See
+                              |codex-contexts|. Set an entry to `false` to
+                              disable.
+  *codex-options-prompts*     `prompts` (table) named prompts for |codex.select|.
+                              See |codex-prompts|. Set an entry to `false` to
+                              remove.
+  *codex-options-ask*         `ask` (table) UI for |codex.ask()|. Fields:
+                              `prompt` (string), `blink_cmp_sources` (list),
+                              `snacks` (table) passed to snacks.input.
+  *codex-options-select*      `select` (table) UI for |codex.select()|.
+                              Fields: `prompt`, `sections`, `snacks`.
+  *codex-options-output*      `output` (table):
+                              - `auto_open` (bool, default true)
+                              - `width` (number)
+                              - `show_details` (bool, default false). When
+                                false, only the final reply renders (markdown).
+                                Toggle at runtime via
+                                |codex.toggle_output_details()|.
+
+4.2 Context placeholders                                       *codex-contexts*
+Built-in placeholder names:
+  @this          current visual selection/operator range or cursor location
+  @buffer        current buffer path/position
+  @buffers       all open buffers
+  @visible       visible lines in open windows
+  @diagnostics   diagnostics from the current buffer
+  @quickfix      quickfix locations
+  @diff          `git diff` output
+  @grapple       `grapple.nvim` tags (if available)
+
+4.3 Prompts                                                     *codex-prompts*
+Default prompts (values can be overridden or disabled):
+  ask_append     `""` (ask=true)
+  ask_this       `"@this: "` (ask=true, submit=true)
+  diagnostics    `"Explain @diagnostics"` (submit=true)
+  diff           `"Review the following git diff for correctness and readability: @diff"` (submit=true)
+  document       `"Add comments documenting @this"` (submit=true)
+  explain        `"Explain @this and its context"` (submit=true)
+  fix            `"Fix @diagnostics"` (submit=true)
+  implement      `"Implement @this"` (submit=true)
+  optimize       `"Optimize @this for performance and readability"` (submit=true)
+  review         `"Review @this for correctness and readability"` (submit=true)
+  test           `"Add tests for @this"` (submit=true)
+
+==============================================================================
