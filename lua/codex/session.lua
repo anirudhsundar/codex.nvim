@@ -8,6 +8,7 @@ local state = {
   thread_id = nil,
   turn_id = nil,
   turn_status = "idle",
+  turn_key = nil,
   user_input = nil,
   items = {},
   order = {},
@@ -17,6 +18,7 @@ local state = {
 local function reset_turn()
   state.turn_id = nil
   state.turn_status = "idle"
+  state.turn_key = nil
   state.user_input = nil
   state.items = {}
   state.order = {}
@@ -33,6 +35,7 @@ end
 local function render()
   local show_details = output.details_enabled()
   local lines = {}
+  local section_id = state.turn_key or state.turn_id or tostring(state.thread_id or "turn")
 
   if not show_details then
     local final_text = ""
@@ -46,7 +49,7 @@ local function render()
     if final_text == "" then
       final_text = ("Status: %s"):format(state.turn_status)
     end
-    output.render({ final_text }, true)
+    output.render({ final_text }, true, section_id)
     return
   end
 
@@ -101,7 +104,7 @@ local function render()
     append_lines(lines, state.diff, "  ")
   end
 
-  output.render(lines, false)
+  output.render(lines, false, section_id)
 end
 
 local function upsert_item(new_item)
@@ -154,6 +157,7 @@ end
 function M.send_prompt(prompt_text)
   state.user_input = prompt_text
   state.turn_status = "starting"
+  state.turn_key = tostring(vim.uv.hrtime())
   render()
 
   return ensure_thread()
@@ -260,7 +264,9 @@ local function register_handlers()
   end)
 
   connection.on("turn/started", function(params)
+    local key = state.turn_key or tostring(vim.uv.hrtime())
     reset_turn()
+    state.turn_key = key
     state.thread_id = params.threadId or state.thread_id
     local turn = params.turn or params.turn
     if turn then

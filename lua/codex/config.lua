@@ -8,6 +8,7 @@ vim.g.codex_opts = vim.g.codex_opts
 ---@field width? number Window width when auto opening the output
 ---@field auto_open? boolean Open the output window automatically
 ---@field show_details? boolean Show full streamed output instead of final reply only
+---@field append_history? boolean Append new turns to the output buffer (default: true)
 
 ---@class codex.ask.Opts
 ---@field prompt? string
@@ -83,6 +84,7 @@ local defaults = {
       commands = {
         ["turn.interrupt"] = "Interrupt the current turn",
         ["thread.new"] = "Start a new thread",
+        ["thread.id"] = "Show the current thread id",
       },
     },
     snacks = {
@@ -97,6 +99,7 @@ local defaults = {
     auto_open = true,
     width = math.floor(vim.o.columns * 0.35),
     show_details = false,
+    append_history = true,
   },
 }
 

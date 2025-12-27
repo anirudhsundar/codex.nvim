@@ -2,6 +2,11 @@ local M = {
   buf = nil,
   win = nil,
   show_details = nil,
+  current_section = {
+    id = nil,
+    start = 0,
+    len = 0,
+  },
 }
 
 local function ensure_buf()
@@ -36,21 +41,53 @@ local function apply_filetype(ft)
   pcall(vim.api.nvim_set_option_value, "filetype", ft, { buf = M.buf })
 end
 
-function M.render(lines, as_markdown)
+---Render lines for a turn section.
+---@param lines string[]
+---@param as_markdown boolean
+---@param section_id string|nil
+function M.render(lines, as_markdown, section_id)
   ensure_buf()
   local opts = require("codex.config").opts.output or {}
   if opts.auto_open ~= false then
     ensure_win()
   end
 
+  local append_mode = opts.append_history ~= false
   vim.api.nvim_set_option_value("modifiable", true, { buf = M.buf })
+
+  local content = lines
   if as_markdown then
-    local md = vim.lsp.util.convert_input_to_markdown_lines(lines)
-    md = vim.lsp.util.stylize_markdown(M.buf, md, { max_width = 80 })
-    vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, md)
-    apply_filetype("markdown")
+    content = vim.lsp.util.convert_input_to_markdown_lines(lines)
+  end
+
+  if not append_mode then
+    vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, content)
+    apply_filetype(as_markdown and "markdown" or "codex")
+    M.current_section = { id = section_id, start = 0, len = #content }
   else
-    vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, lines)
+    if M.current_section.id ~= section_id then
+      -- Append new section
+      local line_count = vim.api.nvim_buf_line_count(M.buf)
+      local start = line_count
+      -- Trim trailing empty single line (fresh buffer)
+      if line_count == 1 then
+        local existing = vim.api.nvim_buf_get_lines(M.buf, 0, -1, false)
+        if existing[1] == "" then
+          start = 0
+        end
+      end
+      if start > 0 then
+        vim.api.nvim_buf_set_lines(M.buf, start, start, false, { "" })
+        start = start + 1
+      end
+      vim.api.nvim_buf_set_lines(M.buf, start, start, false, content)
+      M.current_section = { id = section_id, start = start, len = #content }
+    else
+      -- Replace current section
+      local s = M.current_section.start
+      vim.api.nvim_buf_set_lines(M.buf, s, s + M.current_section.len, false, content)
+      M.current_section.len = #content
+    end
     apply_filetype("codex")
   end
   vim.api.nvim_set_option_value("modifiable", false, { buf = M.buf })
@@ -61,6 +98,7 @@ function M.close()
     vim.api.nvim_win_close(M.win, true)
   end
   M.win = nil
+  M.current_section = { id = nil, start = 0, len = 0 }
 end
 
 function M.details_enabled()

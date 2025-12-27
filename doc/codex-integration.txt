@@ -1,0 +1,107 @@
+*codex-integration.txt*                                   *codex-integration*
+
+codex.nvim ↔ codex app-server: JSON-RPC (stdio) overview.
+
+==============================================================================
+1. Overview
+
+- codex.nvim starts `codex app-server` via stdio (`codex.config.opts.cmd`, default `codex app-server`).
+- JSON-RPC messages are exchanged over the job’s stdin/stdout.
+- The plugin sends `initialize`, receives `initialized`, then issues requests (e.g., `thread/start`, `turn/start`) and listens for notifications (e.g., `item/agentMessage/delta`).
+- All wiring lives in:
+  - `lua/codex/connection.lua`: starts/stops the process, encodes/decodes JSON-RPC, dispatches requests/notifications.
+  - `lua/codex/session.lua`: higher-level thread/turn management, approvals, output buffering.
+
+==============================================================================
+2. Lifecycle (happy path)
+
+1. Start: `connection.start()` spawns `cmd` and sends:
+   ```json
+   { "id": 1, "method": "initialize",
+     "params": { "clientInfo": { "name": "codex.nvim", "title": "Codex Neovim Plugin", "version": "0.1.0" } } }
+   ```
+2. Handshake: server replies:
+   ```json
+   { "id": 1, "result": { "user_agent": "codex/..." } }
+   ```
+   Plugin then notifies:
+   ```json
+   { "method": "initialized" }
+   ```
+3. Thread: when you first prompt, plugin sends `thread/start`:
+   ```json
+   { "id": 2, "method": "thread/start",
+     "params": { "cwd": "/path/to/project", "sandbox": null } }
+   ```
+   Response carries `thread.id`.
+4. Turn (prompt): a user prompt becomes `turn/start`:
+   ```json
+   { "id": 3, "method": "turn/start",
+     "params": {
+       "threadId": "thr_123",
+       "input": [ { "type": "text", "text": "Explain @this: <expanded text>" } ],
+       "cwd": "/path/to/project"
+     } }
+   ```
+5. Streaming: notifications arrive while the turn runs, e.g.:
+   ```json
+   { "method": "item/agentMessage/delta",
+     "params": { "thread_id": "thr_123", "turn_id": "turn_456",
+                 "item_id": "agent1", "delta": "Here is the answer" } }
+   { "method": "item/commandExecution/outputDelta", ... }
+   { "method": "turn/diff/updated", "params": { "diff": "...unified diff..." } }
+   { "method": "turn/completed", "params": { "turn": { "id": "turn_456", "status": "completed" } } }
+   ```
+6. Display: `session.lua` aggregates items, deltas, and diff, then renders lines via `output.lua`.
+
+==============================================================================
+3. Approvals
+
+Codex may request approvals for commands or file changes. The server sends a JSON-RPC **request** (not notification); the plugin must respond.
+
+- Command execution approval:
+  ```json
+  { "id": 10, "method": "item/commandExecution/requestApproval",
+    "params": { "thread_id": "thr_123", "turn_id": "turn_456",
+                "item_id": "cmd1", "reason": "run tests" } }
+  ```
+  Plugin shows `vim.ui.select` and replies:
+  ```json
+  { "id": 10, "result": { "decision": "accept" } }
+  ```
+
+- File change approval:
+  ```json
+  { "id": 11, "method": "item/fileChange/requestApproval",
+    "params": { "thread_id": "thr_123", "turn_id": "turn_456", "item_id": "edit1" } }
+  ```
+  Response mirrors the command approval shape with `decision`.
+
+If you dismiss the picker, the plugin returns `decision: "cancel"` and Codex will treat it as a decline.
+
+==============================================================================
+4. Key message shapes (simplified)
+
+- Requests sent by codex.nvim:
+  - `initialize`, `initialized`
+  - `thread/start`, `turn/start`, `turn/interrupt`
+- Notifications from codex:
+  - `thread/started`, `turn/started`, `turn/completed`
+  - `item/started`, `item/completed`
+  - `item/agentMessage/delta`, `item/reasoning/summaryTextDelta`, `item/reasoning/textDelta`
+  - `item/commandExecution/outputDelta`, `item/fileChange/outputDelta`
+  - `turn/diff/updated`, `turn/plan/updated`
+- Requests from codex requiring a response:
+  - `item/commandExecution/requestApproval`
+  - `item/fileChange/requestApproval`
+
+Field naming: the server generally uses `snake_case` (e.g., `thread_id`, `turn_id`, `item_id`). The plugin normalizes or forwards as-is; see `session.lua` for mapping logic.
+
+==============================================================================
+5. Debugging tips
+
+- Set `vim.g.codex_opts.cmd` to a wrapper script that logs stdin/stdout to inspect raw JSON.
+- Use `:checkhealth codex` to ensure the binary is found.
+- If the app-server exits, `connection.lua` resets state; re-run your command to restart.
+
+==============================================================================

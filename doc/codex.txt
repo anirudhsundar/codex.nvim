@@ -106,30 +106,54 @@ Set `vim.g.codex_opts` before loading. All keys below are optional.
                                 false, only the final reply renders (markdown).
                                 Toggle at runtime via
                                 |codex.toggle_output_details()|.
+                              - `append_history` (bool, default true). When
+                                true, each turn is kept in the buffer; the
+                                current turn is updated in-place without
+                                overwriting previous turns.
 
 4.2 Context placeholders                                       *codex-contexts*
-Built-in placeholder names:
-  @this          current visual selection/operator range or cursor location
-  @buffer        current buffer path/position
-  @buffers       all open buffers
-  @visible       visible lines in open windows
-  @diagnostics   diagnostics from the current buffer
-  @quickfix      quickfix locations
-  @diff          `git diff` output
-  @grapple       `grapple.nvim` tags (if available)
+Placeholders are expanded before sending to Codex:
+  @this          Your current selection/range (or cursor if no selection).
+                 Use it in prompts like `Explain @this` or `Review @this`.
+  @buffer        Current buffer path. Example: `Summarize @buffer`.
+  @buffers       All open file buffers. Example: `List key responsibilities across @buffers`.
+  @visible       Only the text currently on-screen in open windows.
+                 Example: `Review @visible for naming issues.`
+  @diagnostics   Current buffer diagnostics as a small list.
+                 Example: `Fix @diagnostics`.
+  @quickfix      Entries from the quickfix list (file+line).
+                 Example: `Explain these failures: @quickfix`.
+  @diff          Output of `git diff`. Example: `Review @diff`.
+  @grapple       grapple.nvim tags (if available). Example: `Summarize @grapple`.
 
 4.3 Prompts                                                     *codex-prompts*
-Default prompts (values can be overridden or disabled):
-  ask_append     `""` (ask=true)
-  ask_this       `"@this: "` (ask=true, submit=true)
-  diagnostics    `"Explain @diagnostics"` (submit=true)
+Default prompts (can be overridden/disabled via `vim.g.codex_opts.prompts`):
+  ask_append     `""` (ask=true) — Handy for inserting context mid-ask. Type a
+                 few words, pick `ask_append`, then keep typing.
+  ask_this       `"@this: "` (ask=true, submit=true) — Quick “ask about what I
+                 selected” helper; bound to `<C-a>` in the sample config.
+  diagnostics    `"Explain @diagnostics"` (submit=true) — High-level diagnostic
+                 explanation for the current buffer.
   diff           `"Review the following git diff for correctness and readability: @diff"` (submit=true)
-  document       `"Add comments documenting @this"` (submit=true)
-  explain        `"Explain @this and its context"` (submit=true)
-  fix            `"Fix @diagnostics"` (submit=true)
-  implement      `"Implement @this"` (submit=true)
+                 — Full repo diff review; best used after staging changes.
+  document       `"Add comments documenting @this"` (submit=true) — Inline
+                 documentation for a selection.
+  explain        `"Explain @this and its context"` (submit=true) — General
+                 explanation of the selected code.
+  fix            `"Fix @diagnostics"` (submit=true) — Attempts to resolve
+                 diagnostics surfaced by `vim.diagnostic`.
+  implement      `"Implement @this"` (submit=true) — Fill in TODOs or stubs
+                 selected with `@this`.
   optimize       `"Optimize @this for performance and readability"` (submit=true)
+                 — Refine/optimize a selection.
   review         `"Review @this for correctness and readability"` (submit=true)
-  test           `"Add tests for @this"` (submit=true)
+                 — Inline code review on the selection.
+  test           `"Add tests for @this"` (submit=true) — Generate tests for the
+                 selected code block or function.
+
+Commands exposed via |codex.command()| (and |codex.select()| defaults):
+  turn.interrupt    Interrupt the current turn.
+  thread.new        Start a fresh thread (new conversation).
+  thread.id         Show the current thread id in a notification.
 
 ==============================================================================
