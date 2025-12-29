@@ -110,6 +110,13 @@ Set `vim.g.codex_opts` before loading. All keys below are optional.
                                 true, each turn is kept in the buffer; the
                                 current turn is updated in-place without
                                 overwriting previous turns.
+  *codex-options-tmux_resume* `tmux_resume` (table):
+                              - `enabled` (bool, default true). Allow opening
+                                a tmux window running `codex resume <thread_id>`.
+                              - `window_name` (string, default "codex-thread").
+  *codex-options-thread_id*   `thread_id` (string|nil). Resume this thread on
+                              first use instead of starting a new one. Falls
+                              back to a new thread if resume fails.
 
 4.2 Context placeholders                                       *codex-contexts*
 Placeholders are expanded before sending to Codex:
@@ -155,5 +162,9 @@ Commands exposed via |codex.command()| (and |codex.select()| defaults):
   turn.interrupt    Interrupt the current turn.
   thread.new        Start a fresh thread (new conversation).
   thread.id         Show the current thread id in a notification.
+  thread.tmux_resume Open a tmux window running `codex resume <thread_id>`
+                    (requires `tmux_resume.enabled=true` and a tmux session).
+  thread.resume     Prompt for a thread id and resume it in the current Vim
+                    session.
 
 ==============================================================================

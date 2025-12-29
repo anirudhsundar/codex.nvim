@@ -140,18 +140,45 @@ local function ensure_thread()
     end)
   end
 
-  return connection
-    .request("thread/start", {
-      cwd = vim.fn.getcwd(),
-      sandbox = require("codex.config").opts.sandbox,
-    })
-    :next(function(result)
-      if result.thread and result.thread.id then
-        state.thread_id = result.thread.id
-      end
-      render()
-      return state.thread_id
-    end)
+  local opts = require("codex.config").opts
+
+  local function start_new()
+    return connection
+      .request("thread/start", {
+        cwd = vim.fn.getcwd(),
+        sandbox = opts.sandbox,
+      })
+      :next(function(result)
+        if result.thread and result.thread.id then
+          state.thread_id = result.thread.id
+        end
+        render()
+        return state.thread_id
+      end)
+  end
+
+  if opts.thread_id then
+    return connection
+      .request("thread/resume", {
+        threadId = opts.thread_id,
+      })
+      :next(function(result)
+        if result.thread and result.thread.id then
+          state.thread_id = result.thread.id
+          render()
+          return state.thread_id
+        else
+          return start_new()
+        end
+      end)
+      :catch(function(err)
+        vim.notify("Failed to resume codex thread '" .. opts.thread_id .. "': " .. tostring(err) .. " — starting new", vim.log.levels.WARN,
+          { title = "codex" })
+        return start_new()
+      end)
+  end
+
+  return start_new()
 end
 
 function M.send_prompt(prompt_text)
@@ -198,6 +225,31 @@ function M.new_thread()
   reset_turn()
   state.thread_id = nil
   render()
+end
+
+---Resume a specific thread id.
+---@param thread_id string
+function M.resume_thread(thread_id)
+  reset_turn()
+  state.thread_id = nil
+  local opts = require("codex.config").opts
+  connection
+    .request("thread/resume", {
+      threadId = thread_id,
+    })
+    :next(function(result)
+      if result.thread and result.thread.id then
+        state.thread_id = result.thread.id
+        render()
+        vim.notify("Resumed codex thread: " .. result.thread.id, vim.log.levels.INFO, { title = "codex" })
+        return result.thread.id
+      else
+        vim.notify("Failed to resume codex thread " .. thread_id, vim.log.levels.ERROR, { title = "codex" })
+      end
+    end)
+    :catch(function(err)
+      vim.notify("Failed to resume codex thread " .. thread_id .. ": " .. tostring(err), vim.log.levels.ERROR, { title = "codex" })
+    end)
 end
 
 local function handle_command_approval(params)

@@ -31,11 +31,13 @@ vim.g.codex_opts = vim.g.codex_opts
 ---@class codex.Opts
 ---@field cmd? string Command to start the codex app-server
 ---@field sandbox? table Sandbox policy passed to `thread/start`
+---@field thread_id? string Resume this thread id on startup instead of starting new
 ---@field contexts? table<string, fun(context: codex.Context): string|nil>
 ---@field prompts? table<string, codex.Prompt>
 ---@field ask? codex.ask.Opts
 ---@field select? codex.select.Opts
 ---@field output? codex.output.Opts
+---@field tmux_resume? codex.tmux_resume.Opts
 
 local defaults = {
   cmd = "codex app-server",
@@ -51,6 +53,7 @@ local defaults = {
     ["@diff"] = function(context) return context:git_diff() end,
     ["@grapple"] = function(context) return context:grapple_tags() end,
   },
+  thread_id = nil,
   prompts = {
     ask_append = { prompt = "", ask = true },
     ask_this = { prompt = "@this: ", ask = true, submit = true },
@@ -85,6 +88,8 @@ local defaults = {
         ["turn.interrupt"] = "Interrupt the current turn",
         ["thread.new"] = "Start a new thread",
         ["thread.id"] = "Show the current thread id",
+        ["thread.tmux_resume"] = "Open codex resume in tmux",
+        ["thread.resume"] = "Resume a specific thread id",
       },
     },
     snacks = {
@@ -100,6 +105,10 @@ local defaults = {
     width = math.floor(vim.o.columns * 0.35),
     show_details = false,
     append_history = true,
+  },
+  tmux_resume = {
+    enabled = true,
+    window_name = "codex-thread",
   },
 }
 
