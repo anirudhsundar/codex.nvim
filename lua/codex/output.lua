@@ -60,9 +60,10 @@ function M.render(lines, as_markdown, section_id)
     content = vim.lsp.util.convert_input_to_markdown_lines(lines)
   end
 
+  local ft = as_markdown and "markdown" or "codex"
   if not append_mode then
     vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, content)
-    apply_filetype(as_markdown and "markdown" or "codex")
+    apply_filetype(ft)
     M.current_section = { id = section_id, start = 0, len = #content }
   else
     if M.current_section.id ~= section_id then
@@ -88,7 +89,7 @@ function M.render(lines, as_markdown, section_id)
       vim.api.nvim_buf_set_lines(M.buf, s, s + M.current_section.len, false, content)
       M.current_section.len = #content
     end
-    apply_filetype("codex")
+    apply_filetype(ft)
   end
   vim.api.nvim_set_option_value("modifiable", false, { buf = M.buf })
 end
