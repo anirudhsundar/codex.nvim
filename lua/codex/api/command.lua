@@ -25,43 +25,41 @@ local commands = {
   ["model.set"] = function()
     local opts = require("codex.config").opts
     local session = require("codex.session")
-    local function set_reasoning(model_item)
-      if not model_item or not model_item.efforts or #model_item.efforts == 0 then
-        session.set_reasoning_effort(nil)
-        return
-      end
-      vim.ui.select(model_item.efforts, {
-        prompt = string.format("Reasoning effort for %s", model_item.id),
-        format_item = function(e)
-          return e.label or e.id or e
-        end,
-      }, function(choice)
-        if choice then
-          session.set_reasoning_effort(choice.id or choice.effort or choice.reasoning_effort or choice)
-          vim.notify(
-            "Codex model set to: "
-              .. model_item.id
-              .. " (effort: "
-              .. (choice.id or choice.effort or choice.reasoning_effort or choice)
-              .. ")",
-            vim.log.levels.INFO,
-            { title = "codex" }
-          )
-        else
-          vim.notify("Codex model set to: " .. model_item.id, vim.log.levels.INFO, { title = "codex" })
+
+    local function normalize_efforts(model)
+      local efforts = {}
+      local effort_list = model.supported_reasoning_efforts or model.supportedReasoningEfforts
+      if effort_list then
+        for _, e in ipairs(effort_list) do
+          local eid = e.reasoning_effort or e.reasoningEffort or e.id or e
+          local elabel = e.description or e.reasoning_effort or e.reasoningEffort or eid
+          table.insert(efforts, { id = eid, label = elabel })
         end
-      end)
+      end
+      return efforts
     end
 
-    local function set_model(item)
-      if item and item.id then
-        session.set_model(item.id)
-        set_reasoning(item)
-      elseif item and item ~= "" then
-        session.set_model(item)
-        session.set_reasoning_effort(nil)
-        vim.notify("Codex model set to: " .. item, vim.log.levels.INFO, { title = "codex" })
+    local function model_items(models)
+      local items = {}
+      for _, m in ipairs(models or {}) do
+        local id = m.id or m.model or m.name or m
+        local label = id
+        if m.display_name and m.display_name ~= "" then
+          label = string.format("%s (%s)", m.display_name, id)
+        elseif m.description and m.description ~= "" then
+          label = string.format("%s (%s)", id, m.description)
+        end
+        table.insert(items, { id = id, label = label, efforts = normalize_efforts(m) })
       end
+      return items
+    end
+
+    local function string_items(list)
+      local items = {}
+      for _, m in ipairs(list or {}) do
+        table.insert(items, { id = m, label = m, efforts = {} })
+      end
+      return items
     end
 
     local function to_model_list(result)
@@ -84,36 +82,40 @@ local commands = {
       return nil
     end
 
-    local function to_items(models)
-      local items = {}
-      for _, m in ipairs(models or {}) do
-        local id = m.id or m.model or m.name or m
-        local label = id
-        if m.display_name and m.display_name ~= "" then
-          label = string.format("%s (%s)", m.display_name, id)
-        elseif m.description and m.description ~= "" then
-          label = string.format("%s (%s)", id, m.description)
-        end
-        local efforts = {}
-        local effort_list = m.supported_reasoning_efforts or m.supportedReasoningEfforts
-        if effort_list then
-          for _, e in ipairs(effort_list) do
-            local eid = e.reasoning_effort or e.reasoningEffort or e.id or e
-            local elabel = e.description or e.reasoning_effort or e.reasoningEffort or eid
-            table.insert(efforts, { id = eid, label = elabel })
-          end
-        end
-        table.insert(items, { id = id, label = label, efforts = efforts })
+    local function set_reasoning(model_item)
+      if not model_item or not model_item.efforts or #model_item.efforts == 0 then
+        session.set_reasoning_effort(nil)
+        return
       end
-      return items
+      vim.ui.select(model_item.efforts, {
+        prompt = string.format("Reasoning effort for %s", model_item.id),
+        format_item = function(e)
+          return e.label or e.id or e
+        end,
+      }, function(choice)
+        if choice then
+          local effort_id = choice.id or choice.effort or choice.reasoning_effort or choice
+          session.set_reasoning_effort(effort_id)
+          vim.notify(
+            string.format("Codex model set to: %s (effort: %s)", model_item.id, effort_id),
+            vim.log.levels.INFO,
+            { title = "codex" }
+          )
+        else
+          vim.notify("Codex model set to: " .. model_item.id, vim.log.levels.INFO, { title = "codex" })
+        end
+      end)
     end
 
-    local function to_items_from_strings(list)
-      local items = {}
-      for _, m in ipairs(list or {}) do
-        table.insert(items, { id = m, label = m })
+    local function set_model(item)
+      if item and item.id then
+        session.set_model(item.id)
+        set_reasoning(item)
+      elseif item and item ~= "" then
+        session.set_model(item)
+        session.set_reasoning_effort(nil)
+        vim.notify("Codex model set to: " .. item, vim.log.levels.INFO, { title = "codex" })
       end
-      return items
     end
 
     local function choose(items)
@@ -139,7 +141,6 @@ local commands = {
         end
       end)
     end
-
     -- Try to fetch from Codex first
     require("codex.connection")
       .start()
@@ -148,15 +149,15 @@ local commands = {
       end)
       :next(function(result)
         local models = to_model_list(result)
-        local items = models and to_items(models) or {}
+        local items = models and model_items(models) or {}
         if (#items == 0) and opts.models and #opts.models > 0 then
-          items = to_items_from_strings(opts.models)
+          items = string_items(opts.models)
         end
         choose(items)
       end)
       :catch(function(err)
         vim.notify("Failed to fetch models from Codex: " .. tostring(err), vim.log.levels.WARN, { title = "codex" })
-        local items = opts.models and to_items_from_strings(opts.models) or {}
+        local items = opts.models and string_items(opts.models) or {}
         choose(items)
       end)
   end,
