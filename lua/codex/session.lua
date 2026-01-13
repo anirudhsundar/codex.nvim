@@ -9,6 +9,8 @@ local state = {
   turn_id = nil,
   turn_status = "idle",
   turn_key = nil,
+  model = require("codex.config").opts.model,
+  reasoning_effort = nil,
   user_input = nil,
   items = {},
   order = {},
@@ -147,10 +149,15 @@ local function ensure_thread()
       .request("thread/start", {
         cwd = vim.fn.getcwd(),
         sandbox = opts.sandbox,
+        model = state.model,
+        reasoningEffort = state.reasoning_effort,
       })
       :next(function(result)
         if result.thread and result.thread.id then
           state.thread_id = result.thread.id
+          if result.model then
+            state.model = result.model
+          end
         end
         render()
         return state.thread_id
@@ -198,6 +205,8 @@ function M.send_prompt(prompt_text)
           },
         },
         cwd = vim.fn.getcwd(),
+        model = state.model,
+        effort = state.reasoning_effort,
       })
     end)
     :next(function(response)
@@ -250,6 +259,17 @@ function M.resume_thread(thread_id)
     :catch(function(err)
       vim.notify("Failed to resume codex thread " .. thread_id .. ": " .. tostring(err), vim.log.levels.ERROR, { title = "codex" })
     end)
+end
+
+function M.set_model(model)
+  state.model = model
+  state.reasoning_effort = nil
+end
+
+---Set reasoning effort for subsequent turns.
+---@param effort string|nil
+function M.set_reasoning_effort(effort)
+  state.reasoning_effort = effort
 end
 
 local function handle_command_approval(params)

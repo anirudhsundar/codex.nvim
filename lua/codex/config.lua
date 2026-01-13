@@ -32,6 +32,8 @@ vim.g.codex_opts = vim.g.codex_opts
 ---@field cmd? string Command to start the codex app-server
 ---@field sandbox? table Sandbox policy passed to `thread/start`
 ---@field thread_id? string Resume this thread id on startup instead of starting new
+---@field model? string Default model to use (sent on thread/turn start)
+---@field models? string[] Optional list of models to pick from in the model picker
 ---@field contexts? table<string, fun(context: codex.Context): string|nil>
 ---@field prompts? table<string, codex.Prompt>
 ---@field ask? codex.ask.Opts
@@ -42,6 +44,8 @@ vim.g.codex_opts = vim.g.codex_opts
 local defaults = {
   cmd = "codex app-server",
   sandbox = nil,
+  model = nil,
+  models = nil,
   -- stylua: ignore
   contexts = {
     ["@this"] = function(context) return context:this() end,
@@ -90,6 +94,7 @@ local defaults = {
         ["thread.id"] = "Show the current thread id",
         ["thread.tmux_resume"] = "Open codex resume in tmux",
         ["thread.resume"] = "Resume a specific thread id",
+        ["model.set"] = "Set the Codex model",
       },
     },
     snacks = {
