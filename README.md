@@ -77,6 +77,14 @@ All defaults live in `lua/codex/config.lua`. Key options:
 
 Disable or override any prompt/context by setting it to `false` in `vim.g.codex_opts`.
 
+## 🧪 Tests
+
+Requires `plenary.nvim` on your runtimepath. Run from the plugin root:
+
+```sh
+bash tests/run_tests.sh
+```
+
 ## 🙏 Notes
 
 This plugin talks directly to the Codex app-server over JSON-RPC (stdio). It intentionally keeps the UI light while retaining the familiar prompt helpers from the original workflow.

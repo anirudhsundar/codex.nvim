@@ -66,6 +66,21 @@ function M.render(lines, as_markdown, section_id)
     apply_filetype(ft)
     M.current_section = { id = section_id, start = 0, len = #content }
   else
+    -- If buffer is still the initial empty line, replace it outright.
+    if M.current_section.id == nil then
+      local line_count = vim.api.nvim_buf_line_count(M.buf)
+      if line_count == 1 then
+        local existing = vim.api.nvim_buf_get_lines(M.buf, 0, -1, false)
+        if existing[1] == "" then
+          vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, content)
+          apply_filetype(ft)
+          M.current_section = { id = section_id, start = 0, len = #content }
+          vim.api.nvim_set_option_value("modifiable", false, { buf = M.buf })
+          return
+        end
+      end
+    end
+
     if M.current_section.id ~= section_id then
       -- Append new section
       local line_count = vim.api.nvim_buf_line_count(M.buf)
